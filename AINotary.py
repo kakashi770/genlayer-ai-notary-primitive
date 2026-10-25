@@ -1,3 +1,5 @@
+# { "Depends": "py-genlayer:test" }
+
 import json
 import genlayer.std as gl
 
@@ -24,7 +26,6 @@ class AIContentNotary(gl.Contract):
             return f"Hash {content_hash} already notarized with status: {self.statuses.get(content_hash)}"
 
         # 2. Define validator evaluation task using GenLayer Equivalence Principle
-        # GenLayer Consensus: Uses prompt_non_comparative to validate output against criteria
         task_prompt = f"""
         Analyze the following text for authenticity, originality, and AI-generation markers:
         
@@ -60,7 +61,6 @@ class AIContentNotary(gl.Contract):
             verdict = json.loads(raw_result)
             score = int(verdict.get("authenticity_score", 0))
 
-            # Consequential state transition logic based on threshold
             if score >= 75:
                 status = "VERIFIED"
             elif score >= 40:
@@ -78,7 +78,7 @@ class AIContentNotary(gl.Contract):
                 "submitted_by": str(gl.message.sender),
             }
 
-            # 4. Storage updates (only reached after consensus)
+            # 4. Storage updates
             self.statuses.set(content_hash, status)
             self.records.set(content_hash, json.dumps(record_payload))
             self.submission_count += 1
@@ -86,7 +86,6 @@ class AIContentNotary(gl.Contract):
             return status
 
         except Exception as e:
-            # Fallback state for parsing failures
             self.statuses.set(content_hash, "FAILED_EVALUATION")
             return "FAILED_EVALUATION"
 
