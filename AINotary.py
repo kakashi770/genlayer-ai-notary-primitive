@@ -1,13 +1,14 @@
-# { "Depends": "py-genlayer:test" }
+# v0.3.0
+# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
 import json
 import genlayer.std as gl
 
 
 class AIContentNotary(gl.Contract):
-    # State tracking mappings and storage
-    records: gl.TreeMap[str, str]  # content_hash -> JSON verification record
-    statuses: gl.TreeMap[str, str]  # content_hash -> STATUS (VERIFIED/FLAGGED/REJECTED)
+    # Storage mappings and variables
+    records: gl.TreeMap[str, str]
+    statuses: gl.TreeMap[str, str]
     submission_count: int
 
     def __init__(self):
@@ -21,11 +22,11 @@ class AIContentNotary(gl.Contract):
         claimed_author: str,
         source_url: str,
     ) -> str:
-        # 1. State check to prevent duplicate verification
+        # 1. Prevent duplicate verification
         if self.statuses.has(content_hash):
             return f"Hash {content_hash} already notarized with status: {self.statuses.get(content_hash)}"
 
-        # 2. Define validator evaluation task using GenLayer Equivalence Principle
+        # 2. Build task evaluation payload
         def evaluate_content() -> str:
             return f"""
             Analyze the following text for authenticity, originality, and AI-generation markers:
@@ -51,14 +52,14 @@ class AIContentNotary(gl.Contract):
         reasoning must accurately summarize text authenticity.
         """
 
-        # Execute non-deterministic consensus across validators
+        # 3. GenLayer Equivalence Principle consensus
         raw_result = gl.eq_principle.prompt_non_comparative(
             evaluate_content,
             task=task_desc,
             criteria=criteria_rules,
         )
 
-        # 3. Parse JSON verdict and execute consequential state transitions
+        # 4. Parse JSON verdict and execute consequential state transitions
         try:
             verdict = json.loads(str(raw_result))
             score = int(verdict.get("authenticity_score", 0))
@@ -80,7 +81,7 @@ class AIContentNotary(gl.Contract):
                 "submitted_by": str(gl.message.sender),
             }
 
-            # 4. Storage updates
+            # 5. Commit to contract state
             self.statuses.set(content_hash, status)
             self.records.set(content_hash, json.dumps(record_payload))
             self.submission_count += 1
