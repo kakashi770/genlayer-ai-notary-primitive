@@ -8,7 +8,7 @@ class AIContentNotary(gl.Contract):
     # State tracking mappings and storage
     records: gl.TreeMap[str, str]  # content_hash -> JSON verification record
     statuses: gl.TreeMap[str, str]  # content_hash -> STATUS (VERIFIED/FLAGGED/REJECTED)
-    submission_count: u256
+    submission_count: int
 
     def __init__(self):
         self.submission_count = 0
@@ -26,22 +26,24 @@ class AIContentNotary(gl.Contract):
             return f"Hash {content_hash} already notarized with status: {self.statuses.get(content_hash)}"
 
         # 2. Define validator evaluation task using GenLayer Equivalence Principle
-        task_prompt = f"""
-        Analyze the following text for authenticity, originality, and AI-generation markers:
-        
-        Claimed Author: {claimed_author}
-        Source URL: {source_url}
-        Text: "{text_content}"
-        
-        Respond ONLY with a valid JSON object matching this exact schema:
-        {{
-            "authenticity_score": <integer 0-100>,
-            "is_ai_generated": <boolean>,
-            "flagged_issues": [<string>],
-            "reasoning": "<short summary>"
-        }}
-        """
+        def evaluate_content() -> str:
+            return f"""
+            Analyze the following text for authenticity, originality, and AI-generation markers:
+            
+            Claimed Author: {claimed_author}
+            Source URL: {source_url}
+            Text: "{text_content}"
+            
+            Respond ONLY with a valid JSON object matching this exact schema:
+            {{
+                "authenticity_score": 85,
+                "is_ai_generated": false,
+                "flagged_issues": [],
+                "reasoning": "Text appears human written with consistent tone."
+            }}
+            """
 
+        task_desc = "Evaluate text authenticity and generate structured json verdict."
         criteria_rules = """
         Output must be valid JSON matching the exact schema provided.
         authenticity_score must be an integer between 0 and 100.
@@ -51,14 +53,14 @@ class AIContentNotary(gl.Contract):
 
         # Execute non-deterministic consensus across validators
         raw_result = gl.eq_principle.prompt_non_comparative(
-            input=task_prompt,
-            task="Evaluate text authenticity and generate structured json verdict.",
+            evaluate_content,
+            task=task_desc,
             criteria=criteria_rules,
         )
 
         # 3. Parse JSON verdict and execute consequential state transitions
         try:
-            verdict = json.loads(raw_result)
+            verdict = json.loads(str(raw_result))
             score = int(verdict.get("authenticity_score", 0))
 
             if score >= 75:
@@ -85,7 +87,7 @@ class AIContentNotary(gl.Contract):
 
             return status
 
-        except Exception as e:
+        except Exception:
             self.statuses.set(content_hash, "FAILED_EVALUATION")
             return "FAILED_EVALUATION"
 
